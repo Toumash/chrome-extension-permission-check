@@ -141,9 +141,9 @@ When running in GitHub Actions, the action writes a detailed markdown summary to
 
 ## Keeping the permission list up to date
 
-The list of permissions that trigger Chrome warning dialogs is hard-coded in `src/permissions.mjs`, based on the [Chrome permissions list docs](https://developer.chrome.com/docs/extensions/reference/permissions-list) (last synced: **2025-04-29**).
+The list of permissions that trigger Chrome warning dialogs is hard-coded in `src/permissions.mjs`, based on the [Chrome permissions list docs](https://developer.chrome.com/docs/extensions/reference/permissions-list).
 
-A **weekly scheduled workflow** (`.github/workflows/check-docs-update.yml`) automatically checks if Chrome's documentation has been updated by comparing the `dateModified` field in the page's JSON-LD structured data against the known date. If a change is detected, it opens a GitHub issue with the `permissions-update` label — so maintainers are notified to review and update the permission list.
+A **weekly scheduled workflow** (`.github/workflows/check-docs-update.yml`) automatically checks if Chrome's documentation has been updated. If a change is detected, it opens a GitHub issue with the `permissions-update` label — so maintainers are notified to review and update the permission list.
 
 No duplicate issues are created: the workflow skips issue creation if an open `permissions-update` issue already exists.
 
