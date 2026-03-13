@@ -1,0 +1,73 @@
+name: Check for Chrome Permissions Docs Update
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Every Monday at 9:00 UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-docs-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if Chrome permissions docs were updated
+        id: check
+        run: |
+          # The known date from our last sync
+          KNOWN_DATE="2025-04-29"
+
+          # Fetch the page and extract dateModified from JSON-LD structured data
+          PAGE=$(curl -s "https://developer.chrome.com/docs/extensions/reference/permissions-list")
+          DOC_DATE=$(echo "$PAGE" | grep -oP '"dateModified"\s*:\s*"\K[0-9-]+')
+
+          if [ -z "$DOC_DATE" ]; then
+            echo "::warning::Could not extract dateModified from the Chrome docs page"
+            echo "updated=unknown" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Known date: $KNOWN_DATE"
+          echo "Docs date:  $DOC_DATE"
+          echo "doc_date=$DOC_DATE" >> "$GITHUB_OUTPUT"
+
+          if [ "$DOC_DATE" != "$KNOWN_DATE" ]; then
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Chrome permissions docs updated from $KNOWN_DATE to $DOC_DATE"
+          else
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            echo "No update detected — still $KNOWN_DATE"
+          fi
+
+      - name: Create issue if docs were updated
+        if: steps.check.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DOC_DATE="${{ steps.check.outputs.doc_date }}"
+
+          # Check if an open issue already exists
+          EXISTING=$(gh issue list --label "permissions-update" --state open --json number --jq 'length')
+          if [ "$EXISTING" -gt "0" ]; then
+            echo "Issue already exists, skipping"
+            exit 0
+          fi
+
+          gh issue create \
+            --title "Chrome permissions docs updated ($DOC_DATE)" \
+            --label "permissions-update" \
+            --body "$(cat <<EOF
+          The Chrome Extension permissions documentation has been updated.
+
+          - **Previous known date:** 2025-04-29
+          - **New date:** $DOC_DATE
+          - **URL:** https://developer.chrome.com/docs/extensions/reference/permissions-list
+
+          ## Action needed
+
+          1. Review the updated docs for any new or changed permission warnings
+          2. Update \`src/permissions.mjs\` with any changes
+          3. Update the \`KNOWN_DATE\` in \`.github/workflows/check-docs-update.yml\`
+          4. Run tests and rebuild: \`npm test && npm run build\`
+          5. Tag a new release
+          EOF
+          )"
